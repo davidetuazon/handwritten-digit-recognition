@@ -112,5 +112,5 @@ for epoch in range(1, 11):
     train(epoch)
     test()
 
-# torch.save(model.state_dict(), "mnist_cnn.pth")
-# print("Model saved successfully!")
+torch.save(model.state_dict(), "mnist_cnn.pth")
+print("Model saved successfully!")
