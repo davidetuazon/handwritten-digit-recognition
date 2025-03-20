@@ -53,28 +53,28 @@ class CNN(nn.Module):
 
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d(p=0.4)
+        self.conv2_drop = nn.Dropout2d(p=0.25)
         self.fc1 = nn.Linear(320, 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = x.view(-1, 320)
+        x = torch.flatten(x, 1)
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, p=0.5, training=self.training)
+        x = F.dropout(x, p=0.25, training=self.training)
         x = self.fc2(x)
 
-        return F.softmax(x)
+        return x
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = CNN().to(device)
 
-optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
 loss_fn = nn.CrossEntropyLoss()
 
-# training of the model
+# start training the model
 def train(epoch):
     model.train()
 
@@ -112,5 +112,9 @@ for epoch in range(1, 11):
     train(epoch)
     test()
 
-torch.save(model.state_dict(), "mnist_cnn.pth")
-print("Model saved successfully!")
+# !!!IMPORTANT!!!
+# uncomment only the code below when tuning the model and trying prediction, else keep code below commented
+
+# save the trained model for prediction
+# torch.save(model.state_dict(), "mnist_cnn.pth")
+# print("Model saved successfully!")
