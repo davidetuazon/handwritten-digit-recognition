@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import matplotlib.pyplot as plt
+from torch.utils.data import DataLoader
 
 # define the same CNN model structure
 class CNN(nn.Module):
@@ -36,6 +37,7 @@ model.load_state_dict(torch.load("mnist_cnn.pth", map_location=device))
 model.eval()
 
 # Load EMNIST/MNIST test dataset
+
 test_data = datasets.MNIST(
     root='data',
     train=False,
@@ -49,23 +51,28 @@ test_data = datasets.MNIST(
 #     train=False,
 #     transform=transforms.Compose([
 #         transforms.ToTensor(),
+#         transforms.Lambda(lambda x: torch.rot90(x, -1, [1, 2])),
+#         transforms.Lambda(lambda x: torch.flip(x, [2])),
 #         transforms.Normalize((0.1307,), (0.3081,))  
 #     ]),
 #     download=True
 # )
 
-# select test images (batch of 10)
-for i in range(1, 11):
-    data, target = test_data[i]
-    data = data.unsqueeze(0).to(device)
+test_loader = DataLoader(test_data, batch_size=10, shuffle=True)
 
-    # Run prediction
-    output = model(data)
+data_iter = iter(test_loader)
+data, target = next(data_iter)
+data = data.to(device)
+
+# Run predictions for each image in the batch
+for i in range(10):
+    image = data[i].unsqueeze(0)
+    output = model(image)
     prediction = output.argmax(dim=1, keepdim=True).item()
 
     # Print and visualize
-    print(f"Predicted Label No.{i}: {prediction}")
-    image = data.squeeze(0).squeeze(0).cpu().numpy()
+    print(f"Predicted Label No.{i+1}: {prediction}")
+    image = image.squeeze(0).squeeze(0).cpu().numpy()
     plt.imshow(image, cmap='gray')
     plt.title(f"Prediction: {prediction}")
     plt.show()

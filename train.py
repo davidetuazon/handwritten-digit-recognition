@@ -17,6 +17,11 @@ train_transform = transforms.Compose([
     transforms.Normalize((0.1307,), (0.3081,))                  # Normalize MNIST data
 ])
 
+test_transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
+])
+
 # download data to be used for the model
 train_data = datasets.MNIST(
     root='data',
@@ -28,7 +33,7 @@ train_data = datasets.MNIST(
 test_data = datasets.MNIST(
     root='data',
     train=False,
-    transform=ToTensor(),
+    transform=test_transform,
     download=True
 )
 
@@ -105,7 +110,7 @@ def test():
             correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss /= len(loaders['test'].dataset)
-    print(f"\nTEST SET:: Average Loss: {test_loss:.4f}, Accuracy: {correct}/{len(loaders['test'].dataset)} ({100. * correct / len(loaders['test'].dataset):.0f}%)\n")
+    print(f"\nTEST SET:: Average Loss: {test_loss:.4f}, Accuracy: {correct}/{len(loaders['test'].dataset)} ({100. * correct / len(loaders['test'].dataset):.2f}%)\n")
 
     return test_loss
 
@@ -120,20 +125,20 @@ for epoch in range(1, 11):
 
     # adding early stops
     # checking for best test loss improvement
-    if test_loss < best_loss:
-        best_loss = test_loss
-        counter = 0
+    # if test_loss < best_loss:
+    #     best_loss = test_loss
+    #     counter = 0
 
-        torch.save(model.state_dict(), "mnist_cnn.pth")
-        print(f"Model improved and saved at epoch {epoch} successfully!")
-    else:
-        counter += 1
-        print(f"No improvement for {counter}/{patience} epochs.")
+    #     torch.save(model.state_dict(), "mnist_cnn.pth")
+    #     print(f"Model improved and saved at epoch {epoch} successfully!")
+    # else:
+    #     counter += 1
+    #     print(f"No improvement for {counter}/{patience} epochs.")
     
-    # stops training if patience is reached
-    if counter >= patience:
-        print("Early stopping triggered. Stopping training...")
-        break
+    # # stops training if patience is reached
+    # if counter >= patience:
+    #     print("Early stopping triggered. Stopping training...")
+    #     break
 
     # use if the model seems to overfit
     # scheduler.step()
