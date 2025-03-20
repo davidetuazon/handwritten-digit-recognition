@@ -1,10 +1,9 @@
 
-from torchvision import datasets
+from torchvision import datasets, transforms
 from torchvision.transforms import ToTensor
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-
 import matplotlib.pyplot as plt
 
 # define the same CNN model structure
@@ -13,18 +12,18 @@ class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
 
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d(p=0.25)
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 10)
+        self.conv1 = nn.Conv2d(1, 8, kernel_size=5)
+        self.conv2 = nn.Conv2d(8, 16, kernel_size=5)
+        self.conv2_drop = nn.Dropout2d(p=0.3)
+        self.fc1 = nn.Linear(16 * 4 * 4, 40)
+        self.fc2 = nn.Linear(40, 10)
 
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
         x = torch.flatten(x, 1)
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, p=0.25, training=self.training)
+        x = F.dropout(x, p=0.4, training=self.training)
         x = self.fc2(x)
 
         return x
@@ -36,12 +35,24 @@ model = CNN().to(device)
 model.load_state_dict(torch.load("mnist_cnn.pth", map_location=device))
 model.eval()
 
-# Load MNIST test dataset
+# Load EMNIST/MNIST test dataset
 test_data = datasets.MNIST(
     root='data',
     train=False,
     transform=ToTensor(),
-    download=True)
+    download=True
+)
+
+# test_data = datasets.EMNIST(
+#     root='data',
+#     split='digits',
+#     train=False,
+#     transform=transforms.Compose([
+#         transforms.ToTensor(),
+#         transforms.Normalize((0.1307,), (0.3081,))  
+#     ]),
+#     download=True
+# )
 
 # select test images (batch of 10)
 for i in range(1, 11):

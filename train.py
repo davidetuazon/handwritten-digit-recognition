@@ -11,8 +11,8 @@ import torch
 # add noise to images during training
 train_transform = transforms.Compose([
     transforms.RandomRotation(10),                              # Randomly rotate images by ±10 degrees
-    transforms.RandomAffine(0, shear=10, scale=(0.8, 1.2)),     # Distort images slightly
-    transforms.RandomPerspective(distortion_scale=0.2, p=0.5),  # Simulate perspective shifts
+    transforms.RandomAffine(0, shear=15, scale=(0.7, 1.3)),     # Distort images slightly
+    transforms.RandomPerspective(distortion_scale=0.4, p=0.5),  # Simulate perspective shifts
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))                  # Normalize MNIST data
 ])
@@ -51,27 +51,27 @@ class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
 
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d(p=0.25)
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 10)
+        self.conv1 = nn.Conv2d(1, 8, kernel_size=5)
+        self.conv2 = nn.Conv2d(8, 16, kernel_size=5)
+        self.conv2_drop = nn.Dropout2d(p=0.4)
+        self.fc1 = nn.Linear(16 * 4 * 4, 40)
+        self.fc2 = nn.Linear(40, 10)
 
     def forward(self, x):
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
         x = torch.flatten(x, 1)
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, p=0.25, training=self.training)
+        x = F.dropout(x, p=0.5, training=self.training)
         x = self.fc2(x)
 
         return x
 
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = CNN().to(device)
 
-optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
+optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=4e-5)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.5) 
 loss_fn = nn.CrossEntropyLoss()
 
 # start training the model
@@ -107,14 +107,33 @@ def test():
     test_loss /= len(loaders['test'].dataset)
     print(f"\nTEST SET:: Average Loss: {test_loss:.4f}, Accuracy: {correct}/{len(loaders['test'].dataset)} ({100. * correct / len(loaders['test'].dataset):.0f}%)\n")
 
+    return test_loss
+
 # start training
+patience = 3
+counter = 0
+best_loss = float('Inf')
+
 for epoch in range(1, 11):
     train(epoch)
-    test()
+    test_loss = test()
 
-# !!!IMPORTANT!!!
-# uncomment only the code below when tuning the model and trying prediction, else keep code below commented
+    # adding early stops
+    # checking for best test loss improvement
+    if test_loss < best_loss:
+        best_loss = test_loss
+        counter = 0
 
-# save the trained model for prediction
-# torch.save(model.state_dict(), "mnist_cnn.pth")
-# print("Model saved successfully!")
+        torch.save(model.state_dict(), "mnist_cnn.pth")
+        print(f"Model improved and saved at epoch {epoch} successfully!")
+    else:
+        counter += 1
+        print(f"No improvement for {counter}/{patience} epochs.")
+    
+    # stops training if patience is reached
+    if counter >= patience:
+        print("Early stopping triggered. Stopping training...")
+        break
+
+    # use if the model seems to overfit
+    # scheduler.step()
