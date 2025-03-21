@@ -11,7 +11,7 @@ import torch
 # add noise to images during training
 train_transform = transforms.Compose([
     transforms.RandomRotation(10),                              # Randomly rotate images by ±10 degrees
-    transforms.RandomAffine(0, shear=15, scale=(0.7, 1.3)),     # Distort images slightly
+    transforms.RandomAffine(0, shear=10, scale=(0.8, 1.2)),     # Distort images slightly
     transforms.RandomPerspective(distortion_scale=0.4, p=0.5),  # Simulate perspective shifts
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))                  # Normalize MNIST data
@@ -56,18 +56,21 @@ class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
 
-        self.conv1 = nn.Conv2d(1, 8, kernel_size=5)
-        self.conv2 = nn.Conv2d(8, 16, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d(p=0.4)
-        self.fc1 = nn.Linear(16 * 4 * 4, 40)
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=5)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=5)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.bn2 = nn.BatchNorm2d(32)
+        self.conv2_drop = nn.Dropout2d(p=0.3)
+        self.fc1 = nn.Linear(32 * 4 * 4, 40)
         self.fc2 = nn.Linear(40, 10)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+        x = F.relu(self.bn1(F.max_pool2d(self.conv1(x), 2)))
+        x = self.bn2(self.conv2(x))
+        x = F.relu(F.max_pool2d(self.conv2_drop(x), 2))
         x = torch.flatten(x, 1)
+        x = F.dropout(x, p=0.3, training=self.training)
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, p=0.5, training=self.training)
         x = self.fc2(x)
 
         return x
@@ -75,8 +78,9 @@ class CNN(nn.Module):
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = CNN().to(device)
 
-optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=4e-5)
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.5) 
+optimizer = optim.Adam(model.parameters(), lr=0.0005, weight_decay=4e-5)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.7)
+
 loss_fn = nn.CrossEntropyLoss()
 
 # start training the model
@@ -109,7 +113,7 @@ def test():
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
 
-    test_loss /= len(loaders['test'].dataset)
+    test_loss /= len(loaders['test'])
     print(f"\nTEST SET:: Average Loss: {test_loss:.4f}, Accuracy: {correct}/{len(loaders['test'].dataset)} ({100. * correct / len(loaders['test'].dataset):.2f}%)\n")
 
     return test_loss
@@ -123,6 +127,8 @@ for epoch in range(1, 11):
     train(epoch)
     test_loss = test()
 
+    # PLEASE KEEP CODE BELOW COMMENTED IF TRYING ONLY!!!
+
     # adding early stops
     # checking for best test loss improvement
     # if test_loss < best_loss:
@@ -135,10 +141,8 @@ for epoch in range(1, 11):
     #     counter += 1
     #     print(f"No improvement for {counter}/{patience} epochs.")
     
-    # # stops training if patience is reached
     # if counter >= patience:
     #     print("Early stopping triggered. Stopping training...")
     #     break
 
-    # use if the model seems to overfit
     # scheduler.step()
