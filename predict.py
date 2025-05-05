@@ -106,3 +106,54 @@ accuracy = 100. * correct / total_samples
 
 print(f"Test Loss: {test_loss:.4f}")
 print(f"Test Accuracy: {accuracy:.2f}%")
+
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, roc_curve, auc
+from sklearn.preprocessing import label_binarize
+import numpy as np
+
+# Collect all predictions and true labels
+all_preds = []
+all_targets = []
+all_probs = []
+
+with torch.no_grad():
+    for data, target in test_loader:
+        data, target = data.to(device), target.to(device)
+        output = model(data)
+        pred = output.argmax(dim=1)
+        all_preds.extend(pred.cpu().numpy())
+        all_targets.extend(target.cpu().numpy())
+        all_probs.extend(torch.softmax(output, dim=1).cpu().numpy())
+
+# --- Confusion Matrix ---
+cm = confusion_matrix(all_targets, all_preds)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=list(range(10)))
+disp.plot(cmap=plt.cm.Blues)
+plt.title("Confusion Matrix (EMNIST Digits)")
+plt.show()
+
+# --- ROC Curve (One-vs-Rest for 10 digits) ---
+# Binarize the output labels for multi-class ROC
+y_true_bin = label_binarize(all_targets, classes=list(range(10)))
+all_probs = np.array(all_probs)
+
+fpr = dict()
+tpr = dict()
+roc_auc = dict()
+
+for i in range(10):
+    fpr[i], tpr[i], _ = roc_curve(y_true_bin[:, i], all_probs[:, i])
+    roc_auc[i] = auc(fpr[i], tpr[i])
+
+# Plot ROC Curve
+plt.figure(figsize=(10, 8))
+for i in range(10):
+    plt.plot(fpr[i], tpr[i], label=f"Digit {i} (AUC = {roc_auc[i]:.2f})")
+
+plt.plot([0, 1], [0, 1], 'k--', lw=1)
+plt.title("ROC Curve for Each Digit (EMNIST)")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.legend(loc="lower right")
+plt.grid(True)
+plt.show()
