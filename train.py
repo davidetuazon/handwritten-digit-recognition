@@ -17,11 +17,6 @@ train_transform = transforms.Compose([
     transforms.Normalize((0.1307,), (0.3081,))                  # Normalize MNIST data
 ])
 
-test_transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,))
-])
-
 # download data to be used for the model
 train_data = datasets.MNIST(
     root='data',
@@ -30,10 +25,16 @@ train_data = datasets.MNIST(
     download=True
 )
 
-test_data = datasets.MNIST(
+test_data = datasets.EMNIST(
     root='data',
+    split='digits',
     train=False,
-    transform=test_transform,
+    transform=transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: torch.rot90(x, -1, [1, 2])),
+        transforms.Lambda(lambda x: torch.flip(x, [2])),
+        transforms.Normalize((0.1307,), (0.3081,))  
+    ]),
     download=True
 )
 
@@ -58,16 +59,19 @@ class CNN(nn.Module):
 
         self.conv1 = nn.Conv2d(1, 16, kernel_size=5)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=5)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3)
         self.bn1 = nn.BatchNorm2d(16)
         self.bn2 = nn.BatchNorm2d(32)
-        self.conv2_drop = nn.Dropout2d(p=0.3)
-        self.fc1 = nn.Linear(32 * 4 * 4, 40)
+        self.bn3 = nn.BatchNorm2d(64)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.drop = nn.Dropout2d(p=0.3)
+        self.fc1 = nn.Linear(64 * 1 * 1, 40)
         self.fc2 = nn.Linear(40, 10)
 
     def forward(self, x):
-        x = F.relu(self.bn1(F.max_pool2d(self.conv1(x), 2)))
-        x = self.bn2(self.conv2(x))
-        x = F.relu(F.max_pool2d(self.conv2_drop(x), 2))
+        x = self.pool(F.relu(self.bn1(self.conv1(x))))
+        x = self.pool(F.relu(self.bn2(self.conv2(x))))
+        x = self.pool(F.relu(self.bn3(self.drop(self.conv3(x)))))
         x = torch.flatten(x, 1)
         x = F.dropout(x, p=0.3, training=self.training)
         x = F.relu(self.fc1(x))
@@ -79,7 +83,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = CNN().to(device)
 
 optimizer = optim.Adam(model.parameters(), lr=0.0005, weight_decay=4e-5)
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.7)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.9)
 
 loss_fn = nn.CrossEntropyLoss()
 
@@ -123,7 +127,7 @@ patience = 3
 counter = 0
 best_loss = float('Inf')
 
-for epoch in range(1, 11):
+for epoch in range(1, 31):
     train(epoch)
     test_loss = test()
 

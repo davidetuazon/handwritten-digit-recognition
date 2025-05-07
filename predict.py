@@ -15,16 +15,19 @@ class CNN(nn.Module):
 
         self.conv1 = nn.Conv2d(1, 16, kernel_size=5)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=5)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3)
         self.bn1 = nn.BatchNorm2d(16)
         self.bn2 = nn.BatchNorm2d(32)
-        self.conv2_drop = nn.Dropout2d(p=0.3)
-        self.fc1 = nn.Linear(32 * 4 * 4, 40)
+        self.bn3 = nn.BatchNorm2d(64)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.drop = nn.Dropout2d(p=0.3)
+        self.fc1 = nn.Linear(64 * 1 * 1, 40)
         self.fc2 = nn.Linear(40, 10)
 
     def forward(self, x):
-        x = F.relu(self.bn1(F.max_pool2d(self.conv1(x), 2)))
-        x = self.bn2(self.conv2(x))
-        x = F.relu(F.max_pool2d(self.conv2_drop(x), 2))
+        x = self.pool(F.relu(self.bn1(self.conv1(x))))
+        x = self.pool(F.relu(self.bn2(self.conv2(x))))
+        x = self.pool(F.relu(self.bn3(self.drop(self.conv3(x)))))
         x = torch.flatten(x, 1)
         x = F.dropout(x, p=0.3, training=self.training)
         x = F.relu(self.fc1(x))
@@ -32,11 +35,11 @@ class CNN(nn.Module):
 
         return x
 
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = CNN().to(device)
 
-#current model's training results:: average loss: 0.0229, accuracy: 99.04%
+#current model's training results:: average loss: 0.0399, accuracy: 98.81%
+# trained on MNIST, evaluated on EMNIST
 model.load_state_dict(torch.load("mnist_cnn.pth", map_location=device))
 model.eval()
 
