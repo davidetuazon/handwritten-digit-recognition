@@ -40,11 +40,6 @@ model = CNN().to(device)
 model.load_state_dict(torch.load("mnist_cnn.pth", map_location=device))
 model.eval()
 
-train_transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,))
-])
-
 # Load EMNIST/MNIST test dataset
 
 # test_data = datasets.MNIST(
